@@ -14,9 +14,12 @@ export function getResources(args?: GetResourcesArgs, opts?: pulumi.InvokeOption
 
     opts = pulumi.mergeOptions(utilities.resourceOptsDefaults(), opts || {});
     return pulumi.runtime.invoke("azure:core/getResources:getResources", {
+        "location": args.location,
+        "managementGroupIds": args.managementGroupIds,
         "name": args.name,
         "requiredTags": args.requiredTags,
         "resourceGroupName": args.resourceGroupName,
+        "subscriptionIds": args.subscriptionIds,
         "type": args.type,
     }, opts);
 }
@@ -26,48 +29,28 @@ export function getResources(args?: GetResourcesArgs, opts?: pulumi.InvokeOption
  */
 export interface GetResourcesArgs {
     /**
-     * The name of the Resource.
+     * Only return resources that deployed at a specific location
+     */
+    location?: string;
+    managementGroupIds?: string[];
+    /**
+     * The name of the Resource to search for
      */
     name?: string;
-    /**
-     * A mapping of tags which the resource has to have in order to be included in the result.
-     */
     requiredTags?: {[key: string]: string};
     /**
-     * The name of the Resource group where the Resources are located.
+     * The name of the Resource group where the Resources are located
      */
     resourceGroupName?: string;
+    subscriptionIds?: string[];
     /**
-     * The Resource Type of the Resources you want to list (e.g. `Microsoft.Network/virtualNetworks`). A full list of available Resource Types can be found [here](https://docs.microsoft.com/azure/azure-resource-manager/azure-services-resource-providers).
+     * The Resource Type of the Resources you want to list
      */
     type?: string;
 }
 
-/**
- * A collection of values returned by getResources.
- */
 export interface GetResourcesResult {
-    /**
-     * The provider-assigned unique ID for this managed resource.
-     */
-    readonly id: string;
-    /**
-     * The name of this Resource.
-     */
-    readonly name: string;
-    readonly requiredTags?: {[key: string]: string};
-    /**
-     * The name of the Resource Group in which this Resource exists.
-     */
-    readonly resourceGroupName: string;
-    /**
-     * One or more `resource` blocks as defined below.
-     */
     readonly resources: outputs.core.GetResourcesResource[];
-    /**
-     * The type of this Resource. (e.g. `Microsoft.Network/virtualNetworks`).
-     */
-    readonly type: string;
 }
 /**
  * Use this data source to access information about existing resources.
@@ -81,19 +64,22 @@ export function getResourcesOutput(args?: GetResourcesOutputArgs, opts?: pulumi.
  */
 export interface GetResourcesOutputArgs {
     /**
-     * The name of the Resource.
+     * Only return resources that deployed at a specific location
+     */
+    location?: pulumi.Input<string>;
+    managementGroupIds?: pulumi.Input<pulumi.Input<string>[]>;
+    /**
+     * The name of the Resource to search for
      */
     name?: pulumi.Input<string>;
-    /**
-     * A mapping of tags which the resource has to have in order to be included in the result.
-     */
     requiredTags?: pulumi.Input<{[key: string]: pulumi.Input<string>}>;
     /**
-     * The name of the Resource group where the Resources are located.
+     * The name of the Resource group where the Resources are located
      */
     resourceGroupName?: pulumi.Input<string>;
+    subscriptionIds?: pulumi.Input<pulumi.Input<string>[]>;
     /**
-     * The Resource Type of the Resources you want to list (e.g. `Microsoft.Network/virtualNetworks`). A full list of available Resource Types can be found [here](https://docs.microsoft.com/azure/azure-resource-manager/azure-services-resource-providers).
+     * The Resource Type of the Resources you want to list
      */
     type?: pulumi.Input<string>;
 }

@@ -14,6 +14,10 @@ export { GetClientConfigResult } from "./getClientConfig";
 export const getClientConfig: typeof import("./getClientConfig").getClientConfig = null as any;
 utilities.lazyLoad(exports, ["getClientConfig"], () => require("./getClientConfig"));
 
+export { GetClientTokenResult } from "./getClientToken";
+export const getClientToken: typeof import("./getClientToken").getClientToken = null as any;
+utilities.lazyLoad(exports, ["getClientToken"], () => require("./getClientToken"));
+
 export { GetExtendedLocationsArgs, GetExtendedLocationsResult, GetExtendedLocationsOutputArgs } from "./getExtendedLocations";
 export const getExtendedLocations: typeof import("./getExtendedLocations").getExtendedLocations = null as any;
 export const getExtendedLocationsOutput: typeof import("./getExtendedLocations").getExtendedLocationsOutput = null as any;

@@ -32648,29 +32648,36 @@ export namespace core {
         specification: string;
     }
 
+    /**
+     * A collection of values returned by getResources.
+     */
     export interface GetResourcesResource {
         /**
-         * The ID of this Resource.
+         * The provider-assigned unique ID for this managed resource.
          */
         id: string;
         /**
-         * The Azure Region in which this Resource exists.
+         * The location where the resource is deployed.
          */
-        location: string;
+        location?: string;
         /**
-         * The name of the Resource.
+         * The name of this Resource.
          */
         name: string;
         /**
-         * The name of the Resource group where the Resources are located.
+         * The resoure group to which the resources is deployed.
          */
-        resourceGroupName: string;
+        resourceGroupName?: string;
         /**
-         * A map of tags assigned to this Resource.
+         * The subscription to which the resources is deployed.
          */
-        tags: {[key: string]: string};
+        subscriptionId?: string;
         /**
-         * The Resource Type of the Resources you want to list (e.g. `Microsoft.Network/virtualNetworks`). A full list of available Resource Types can be found [here](https://docs.microsoft.com/azure/azure-resource-manager/azure-services-resource-providers).
+         * The tags assigned to the resource.
+         */
+        tags?: {[key: string]: string};
+        /**
+         * The type of the resource.
          */
         type: string;
     }

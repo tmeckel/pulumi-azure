@@ -423,6 +423,7 @@
         "containerservice/tokenPassword.ts",
         "core/customProvider.ts",
         "core/getClientConfig.ts",
+        "core/getClientToken.ts",
         "core/getExtendedLocations.ts",
         "core/getResourceGroup.ts",
         "core/getResourceGroupTemplateDeployment.ts",
