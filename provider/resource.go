@@ -38,6 +38,7 @@ import (
 	"github.com/pulumi/pulumi-terraform-bridge/v3/pkg/tfbridge/x"
 	tfshim "github.com/pulumi/pulumi-terraform-bridge/v3/pkg/tfshim"
 	shimv2 "github.com/pulumi/pulumi-terraform-bridge/v3/pkg/tfshim/sdk-v2"
+	"github.com/pulumi/pulumi-terraform-bridge/x/muxer"
 	"github.com/pulumi/pulumi/sdk/v3/go/common/resource"
 	"github.com/pulumi/pulumi/sdk/v3/go/common/tokens"
 	"github.com/pulumi/pulumi/sdk/v3/go/common/util/contract"
@@ -467,18 +468,7 @@ func arrayValue(vars resource.PropertyMap, prop resource.PropertyKey, envs []str
 	return vals
 }
 
-// preConfigureCallback returns an error when cloud provider setup is misconfigured
-func preConfigureCallback(vars resource.PropertyMap, c tfshim.ResourceConfig) error {
-	envName := stringValue(vars, "environment", []string{"ARM_ENVIRONMENT"})
-	if envName == "" {
-		envName = "public"
-	}
-
-	env, err := environments.FromName(envName)
-	if err != nil {
-		return fmt.Errorf("failed to read Azure environment \"%s\": %v", envName, err)
-	}
-
+func createAuthenticator(vars resource.PropertyMap, env *environments.Environment, api environments.Api) (auth.Authorizer, error) {
 	//check for auxiliary tenants
 	auxTenants := arrayValue(vars, "auxiliaryTenantIDs", []string{"ARM_AUXILIARY_TENANT_IDS"})
 
@@ -509,13 +499,27 @@ func preConfigureCallback(vars resource.PropertyMap, c tfshim.ResourceConfig) er
 		EnableAuthenticationUsingGitHubOIDC:        useOIDC,
 	}
 
-	_, err = auth.NewAuthorizerFromCredentials(context.Background(), authConfig, env.MicrosoftGraph)
+	return auth.NewAuthorizerFromCredentials(context.Background(), authConfig, api)
+}
 
+// preConfigureCallback returns an error when cloud provider setup is misconfigured
+func preConfigureCallback(vars resource.PropertyMap, c tfshim.ResourceConfig) error {
+	envName := stringValue(vars, "environment", []string{"ARM_ENVIRONMENT"})
+	if envName == "" {
+		envName = "public"
+	}
+
+	env, err := environments.FromName(envName)
+	if err != nil {
+		return fmt.Errorf("failed to read Azure environment \"%s\": %v", envName, err)
+	}
+
+	_, err = createAuthenticator(vars, env, env.MicrosoftGraph)
 	if err != nil {
 		return fmt.Errorf("failed to load application credentials:\n"+
 			"Details: %v\n\n"+
 			"\tPlease make sure you have signed in via 'az login' or configured another authentication method.\n\n"+
-			"\tSee https://www.pulumi.com/registry/packages/azure/installation-configuration/ for more information.", err)
+			"\tSee https://www.pulumi.com/registry/packages/azure/installation-configuration/ for more information", err)
 	}
 	return nil
 }
@@ -3196,6 +3200,9 @@ func Provider() tfbridge.ProviderInfo {
 
 			"azurerm_orchestrated_virtual_machine_scale_set": {Tok: azureDataSource(azureCompute, "getOrchestratedVirtualMachineScaleSet")},
 			"azurerm_container_app":                          {Tok: azureDataSource(azureContainerApp, "getApp")},
+		},
+		MuxWith: []muxer.Provider{
+			NewAzureMuxProvider(),
 		},
 		JavaScript: &tfbridge.JavaScriptInfo{
 			TypeScriptVersion: "4.7.4",
