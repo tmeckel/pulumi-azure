@@ -19,7 +19,6 @@ import (
 	// Allow embedding the metadata file
 	_ "embed"
 
-	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -28,16 +27,18 @@ import (
 	"unicode"
 
 	"github.com/Azure/go-autorest/autorest/azure/cli"
-	"github.com/hashicorp/go-azure-sdk/sdk/auth"
 	"github.com/hashicorp/go-azure-sdk/sdk/environments"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/hashicorp/terraform-provider-azurerm/helpers/azure"
 	"github.com/hashicorp/terraform-provider-azurerm/shim"
+	"github.com/pulumi/pulumi-azure/provider/v5/mux"
+	"github.com/pulumi/pulumi-azure/provider/v5/pkg/util"
 	"github.com/pulumi/pulumi-azure/provider/v5/pkg/version"
 	"github.com/pulumi/pulumi-terraform-bridge/v3/pkg/tfbridge"
 	tks "github.com/pulumi/pulumi-terraform-bridge/v3/pkg/tfbridge/tokens"
 	tfshim "github.com/pulumi/pulumi-terraform-bridge/v3/pkg/tfshim"
 	shimv2 "github.com/pulumi/pulumi-terraform-bridge/v3/pkg/tfshim/sdk-v2"
+	"github.com/pulumi/pulumi-terraform-bridge/x/muxer"
 	"github.com/pulumi/pulumi/sdk/v3/go/common/resource"
 	"github.com/pulumi/pulumi/sdk/v3/go/common/tokens"
 	"github.com/pulumi/pulumi/sdk/v3/go/common/util/contract"
@@ -423,59 +424,9 @@ func detectCloudShell() cloudShellProfile {
 	return negative
 }
 
-// stringValue gets a string value from a property map, then from environment vars; if neither are present, returns empty string ""
-func stringValue(vars resource.PropertyMap, prop resource.PropertyKey, envs []string) string {
-	val, ok := vars[prop]
-	if ok && val.IsString() {
-		return val.StringValue()
-	}
-	for _, env := range envs {
-		val, ok := os.LookupEnv(env)
-		if ok {
-			return val
-		}
-	}
-	return ""
-}
-
-// boolValue takes a bool value from a property map, then from environment vars; defaults to false
-func boolValue(vars resource.PropertyMap, prop resource.PropertyKey, envs []string) bool {
-	val, ok := vars[prop]
-	if ok && val.IsBool() {
-		return val.BoolValue()
-	}
-	for _, env := range envs {
-		val, ok := os.LookupEnv(env)
-		if ok && val == "true" {
-			return true
-		}
-	}
-	return false
-}
-
-// arrayValue takes an array value from a property map, then from environment vars; defaults to an empty array
-func arrayValue(vars resource.PropertyMap, prop resource.PropertyKey, envs []string) []string {
-	val, ok := vars[prop]
-	var vals []string
-	if ok && val.IsArray() {
-		for _, v := range val.ArrayValue() {
-			vals = append(vals, v.StringValue())
-		}
-		return vals
-	}
-
-	for _, env := range envs {
-		val, ok := os.LookupEnv(env)
-		if ok {
-			return strings.Split(val, ";")
-		}
-	}
-	return vals
-}
-
 // preConfigureCallback returns an error when cloud provider setup is misconfigured
 func preConfigureCallback(vars resource.PropertyMap, c tfshim.ResourceConfig) error {
-	envName := stringValue(vars, "environment", []string{"ARM_ENVIRONMENT"})
+	envName := util.StringValue(vars, "environment", []string{"ARM_ENVIRONMENT"})
 	if envName == "" {
 		envName = "public"
 	}
@@ -485,38 +436,7 @@ func preConfigureCallback(vars resource.PropertyMap, c tfshim.ResourceConfig) er
 		return fmt.Errorf("failed to read Azure environment \"%s\": %v", envName, err)
 	}
 
-	//check for auxiliary tenants
-	auxTenants := arrayValue(vars, "auxiliaryTenantIDs", []string{"ARM_AUXILIARY_TENANT_IDS"})
-
-	// validate the azure config
-	useOIDC := boolValue(vars, "useOidc", []string{"ARM_USE_OIDC"})
-	authConfig := auth.Credentials{
-		// SubscriptionID:                stringValue(vars, "subscriptionId", []string{"ARM_SUBSCRIPTION_ID"}),
-		ClientID:                      stringValue(vars, "clientId", []string{"ARM_CLIENT_ID"}),
-		ClientSecret:                  stringValue(vars, "clientSecret", []string{"ARM_CLIENT_SECRET"}),
-		TenantID:                      stringValue(vars, "tenantId", []string{"ARM_TENANT_ID"}),
-		Environment:                   *env,
-		ClientCertificatePath:         stringValue(vars, "clientCertificatePath", []string{"ARM_CLIENT_CERTIFICATE_PATH"}),
-		ClientCertificatePassword:     stringValue(vars, "clientCertificatePassword", []string{"ARM_CLIENT_CERTIFICATE_PASSWORD"}),
-		CustomManagedIdentityEndpoint: stringValue(vars, "msiEndpoint", []string{"ARM_MSI_ENDPOINT"}),
-		AuxiliaryTenantIDs:            auxTenants,
-
-		// OIDC section. The ACTIONS_ variables are set by GitHub.
-		GitHubOIDCTokenRequestToken: stringValue(vars, "oidcRequestToken", []string{"ARM_OIDC_REQUEST_TOKEN", "ACTIONS_ID_TOKEN_REQUEST_TOKEN"}),
-		GitHubOIDCTokenRequestURL:   stringValue(vars, "oidcRequestUrl", []string{"ARM_OIDC_REQUEST_URL", "ACTIONS_ID_TOKEN_REQUEST_URL"}),
-		OIDCAssertionToken:          stringValue(vars, "oidcToken", []string{"ARM_OIDC_TOKEN"}),
-
-		// Feature Toggles
-		EnableAuthenticatingUsingClientCertificate: true,
-		EnableAuthenticatingUsingClientSecret:      true,
-		EnableAuthenticatingUsingManagedIdentity:   boolValue(vars, "useMsi", []string{"ARM_USE_MSI"}),
-		EnableAuthenticatingUsingAzureCLI:          true,
-		EnableAuthenticationUsingOIDC:              useOIDC,
-		EnableAuthenticationUsingGitHubOIDC:        useOIDC,
-	}
-
-	_, err = auth.NewAuthorizerFromCredentials(context.Background(), authConfig, env.MicrosoftGraph)
-
+	_, err = util.CreateAuthenticator(vars, env, env.MicrosoftGraph)
 	if err != nil {
 		return fmt.Errorf("failed to load application credentials:\n"+
 			"Details: %v\n\n"+
@@ -3204,6 +3124,9 @@ func Provider() tfbridge.ProviderInfo {
 
 			"azurerm_orchestrated_virtual_machine_scale_set": {Tok: azureDataSource(azureCompute, "getOrchestratedVirtualMachineScaleSet")},
 			"azurerm_container_app":                          {Tok: azureDataSource(azureContainerApp, "getApp")},
+		},
+		MuxWith: []muxer.Provider{
+			mux.NewProvider(),
 		},
 		JavaScript: &tfbridge.JavaScriptInfo{
 			TypeScriptVersion: "4.7.4",
