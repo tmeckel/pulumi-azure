@@ -37,10 +37,10 @@ func configure(ctx gop.Context, req gop.ConfigureRequest) (err error) {
 	return
 }
 
-func (p *Provider) GetInstance(host *provider.HostClient) (rpc.ResourceProviderServer, error) {
-	return gop.RawServer("azure", "", p.prov)
+func (p *Provider) GetInstance(ctx context.Context, name, version string, host *provider.HostClient) (rpc.ResourceProviderServer, error) {
+	return gop.RawServer(name, version, p.prov)
 }
 
-func (p *Provider) GetSpec() (schema.PackageSpec, error) {
-	return gop.GetSchema(context.Background(), "azure", "", p.prov)
+func (p *Provider) GetSpec(ctx context.Context, name, version string) (schema.PackageSpec, error) {
+	return gop.GetSchema(ctx, name, version, p.prov)
 }

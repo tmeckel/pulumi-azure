@@ -38,7 +38,6 @@ import (
 	tks "github.com/pulumi/pulumi-terraform-bridge/v3/pkg/tfbridge/tokens"
 	tfshim "github.com/pulumi/pulumi-terraform-bridge/v3/pkg/tfshim"
 	shimv2 "github.com/pulumi/pulumi-terraform-bridge/v3/pkg/tfshim/sdk-v2"
-	"github.com/pulumi/pulumi-terraform-bridge/x/muxer"
 	"github.com/pulumi/pulumi/sdk/v3/go/common/resource"
 	"github.com/pulumi/pulumi/sdk/v3/go/common/tokens"
 	"github.com/pulumi/pulumi/sdk/v3/go/common/util/contract"
@@ -3125,7 +3124,7 @@ func Provider() tfbridge.ProviderInfo {
 			"azurerm_orchestrated_virtual_machine_scale_set": {Tok: azureDataSource(azureCompute, "getOrchestratedVirtualMachineScaleSet")},
 			"azurerm_container_app":                          {Tok: azureDataSource(azureContainerApp, "getApp")},
 		},
-		MuxWith: []muxer.Provider{
+		MuxWith: []tfbridge.MuxProvider{
 			mux.NewProvider(),
 		},
 		JavaScript: &tfbridge.JavaScriptInfo{
